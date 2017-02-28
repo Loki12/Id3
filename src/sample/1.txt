@@ -1,3 +1,4 @@
+Transport CarOwner Cost IncomeLevel
 Bus Male 0 Cheap Low
 Bus Male 1 Cheap Medium
 Train Female 1 Cheap Medium

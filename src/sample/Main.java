@@ -1,17 +1,15 @@
 package sample;
 
-import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
-import sample.model.MyTree;
+import sample.model.MyPoint;
 
 import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
-import java.util.stream.Stream;
 
 public class Main /*extends Application*/ {
 
@@ -30,7 +28,8 @@ public class Main /*extends Application*/ {
 
         ArrayList<List<String>> matrix2 = new ArrayList<List<String>>();
 
-        for (int j = 0; j < matrix.get(0).size(); j++) {
+        List<String> names = matrix.get(0);
+        for (int j = 1; j < matrix.get(0).size(); j++) {
             List<String> list1 = new ArrayList<>();
             for (int i = 0; i != matrix.size(); i++) {
                 list1.add(matrix.get(i).get(j));
@@ -40,9 +39,11 @@ public class Main /*extends Application*/ {
 
 //        matrix2.forEach(System.out::println);
 
-        MyTree root = new MyTree();
-        initEntropyAndGain(matrix2);
+        MyPoint root = new MyPoint("Root");
+        root.setRoot(true);
+        initEntropyAndGain(matrix2, names, root);
 
+        double f = 32;
     }
 
    // @Override
@@ -58,17 +59,12 @@ public class Main /*extends Application*/ {
 
 
 
-    private static void initEntropyAndGain(ArrayList<List<String>> matrix) {
+    private static void initEntropyAndGain(ArrayList<List<String>> matrix, List<String> names, MyPoint root) {
 
         Double entropy = EntropyLevel(matrix.get(0));
-        System.out.println("Entropy for 1= " + entropy);
 
         if (entropy!=0&&entropy!=1)
         {
-            /*OptionalDouble GainLevel = matrix.stream().filter(str-> matrix.indexOf(str)>0).
-                    mapToDouble(str->GainLevel(matrix, matrix.indexOf(str), entropy)).peek();
-            */
-
             TreeMap<Integer, Double> gainList = new TreeMap<>();
             for(int i=1; i!=matrix.size(); i++)
             {
@@ -76,15 +72,57 @@ public class Main /*extends Application*/ {
                 System.out.print("Gain for " + i + " = "+ Gain);
                 gainList.put(i, Gain);
             }
-            gainList.entrySet().forEach(str->System.out.println(str.getKey() + " " + str.getValue()));
-            //gainList.entrySet().stream().max();
 
-            //входим в этот ряд, сами продолжаем
-            //учесть если нет продолжения или если оно одно
+            Integer maxgain = gainList.entrySet().stream().max(Comparator.comparing(Map.Entry::getValue)).get().getKey();
+
+            if (root.isRoot())
+            {
+                root.name = names.get(maxgain);
+            }
+
+            List<String> leaves_names = new LinkedList<>();
+            List<List<List<String>>> lists = SeparateTable(matrix, maxgain, leaves_names);
+            //разделим на несколько таблиц и запустим каждую из них
+
+            for (int i = 0; i < leaves_names.size(); i++) {
+                MyPoint myPoint = new MyPoint(leaves_names.get(i));
+                initEntropyAndGain(matrix, names, myPoint);
+                root.leaves.add(myPoint);
+            }
+
         }
     }
 
-    private MyTree fromMatToTree(ArrayList<List<String>> matrix, MyTree root, Double entropy) {
+    private static List<List<List<String>>> SeparateTable(ArrayList<List<String>> matrix, Integer maxgain, List<String> leaves_names) {
+
+        List<String> DistinctList = matrix.get(maxgain).stream().distinct().collect(Collectors.toList());
+        leaves_names = DistinctList;
+        List<List<List<String>>> lists = new ArrayList<>();
+
+        for(int i=0; i!=DistinctList.size(); i++)
+        {
+            List<List<String>> listList = new ArrayList<>();
+            lists.add(listList);
+        }
+
+        for (int i = 0; i < matrix.get(maxgain).size(); i++) {
+            for (int j=0; j !=DistinctList.size(); j++)
+            {
+                if (matrix.get(maxgain).get(i).equals(DistinctList.get(j)))
+                {
+                    for(int h=0; h!=matrix.size(); h++)
+                    {
+                        lists.get(j).get(h).add(matrix.get(h).get(i));
+                    }
+                }
+            }
+
+        }
+
+        return lists;
+    }
+
+    private MyPoint fromMatToTree(ArrayList<List<String>> matrix, MyPoint root, Double entropy) {
 
 
 
@@ -98,22 +136,6 @@ public class Main /*extends Application*/ {
         System.out.print("Значения по одному разу");
         Distinctcollect.forEach(System.out::println);
 
-
-        //возвращает списки значений
-       /* List<List<String>> listList = Distinctcollect.stream().map(d -> {
-           return matrix.get(i).stream().filter(d::equals).map(str ->
-           {
-                return matrix.get(0).get(matrix.get(i).indexOf(str));
-           }).collect(Collectors.toList());
-        }).collect(Collectors.toList());
-
-        List<List<Integer>> listListInt = Distinctcollect.stream().map(d -> {
-            return matrix.get(i).stream().filter(d::equals).map(str ->
-            {
-                return matrix.get(i).indexOf(str);
-            }).collect(Collectors.toList());
-        }).collect(Collectors.toList());
-*/
         List<List<String>> listList1 = new ArrayList<>();
         List<String> str;
         for(int g = 0; g!=Distinctcollect.size(); g++){
@@ -132,17 +154,9 @@ public class Main /*extends Application*/ {
             }
         }
 
-
-        System.out.println("Список список " + i);
-        listList1.forEach(System.out::println);
-
-        //Считаем уровень для каждого
         List<Double> doubles = listList1.stream().map(Main::EntropyLevel).collect(Collectors.toList());
 
-        System.out.println("Энтропия одного и второго");
-        doubles.forEach(System.out::println);
 
-        //вычисляем Gain
         double sum = 0;
         for (int j = 0; j < listList1.size(); j++) {
             sum += ((double)listList1.get(j).size()/(double) matrix.get(i).size() * doubles.get(j));
@@ -154,26 +168,12 @@ public class Main /*extends Application*/ {
     private static Double EntropyLevel(List<String> list) {
         List<String> Distinctcollect = list.stream().distinct().collect(Collectors.toList());
 
-        //        Distinctcollect.forEach(System.out::println);
-
-        //считаем вероятности
-/*
-        List<Double> probabilityList = new ArrayList<>();
-        for (String string: Distinctcollect)
-        {
-            probabilityList.add((double)list.stream().filter(str-> str.equals(string)).count() / (double) list.size());
-        }
-*/
-
-        DoubleStream doubleStream = Distinctcollect.stream().mapToDouble(str-> {
-            return (double)list.stream().filter(p-> p.equals(str)).count() / (double)list.size();
-                }
+        DoubleStream doubleStream = Distinctcollect.stream().mapToDouble(str->
+                (double)list.stream().filter(p-> p.equals(str)).count() / (double)list.size()
         );
 
         List<Double> doubleList = new ArrayList<>();
         doubleStream.forEach(doubleList::add);
-
-//        doubleList.forEach(System.out::println);
 
         return Math.abs(doubleList.stream().mapToDouble(str-> {
             return str*Math.log(str)/Math.log(2);
