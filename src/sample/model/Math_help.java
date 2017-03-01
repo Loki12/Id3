@@ -1,22 +1,14 @@
 package sample.model;
 
-import javafx.util.Pair;
-import sample.Main;
-
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 
-/**
- * Created by Sergej on 28.02.2017.
- */
 public class Math_help {
-
-    static Double maxgain;
 
     public static ArrayList<List<String>> rotateMatrix(ArrayList<List<String>> matrix) {
 
-        ArrayList<List<String>> matrix2 = new ArrayList<List<String>>();
+        ArrayList<List<String>> matrix2 = new ArrayList<>();
 
         for (int j = 0; j < matrix.get(0).size(); j++) {
             List<String> list1 = new ArrayList<>();
@@ -40,9 +32,7 @@ public class Math_help {
         List<Double> doubleList = new ArrayList<>();
         probabilities.forEach(doubleList::add);
 
-        return Math.abs(doubleList.stream().mapToDouble(str-> {
-            return str*Math.log(str)/Math.log(2);
-        }).sum());
+        return Math.abs(doubleList.stream().mapToDouble(str-> str*Math.log(str)/Math.log(2)).sum());
 
         //Большой вопрос, почему нельзя сделть так
 //        Double DumD = probabilities.map(str-> str*Math.log1p(str)).sum();
@@ -60,12 +50,9 @@ public class Math_help {
          return gainList.entrySet().stream().max(Comparator.comparing(Map.Entry::getValue)).get();
     }
 
-    public static Double GainLevel(ArrayList<List<String>> matrix, int i, Double rootEntropy) {
+    private static Double GainLevel(ArrayList<List<String>> matrix, int i, Double rootEntropy) {
 
         List<String> Distinctcollect  = matrix.get(i).stream().distinct().collect(Collectors.toList());
-
-/*        System.out.print("Значения по одному разу");
-        Distinctcollect.forEach(System.out::println);*/
 
         List<List<String>> listList1 = new ArrayList<>();
         List<String> str;
