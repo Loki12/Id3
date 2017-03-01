@@ -1,209 +1,133 @@
 package sample;
 
-import javafx.application.Application;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
-import javafx.stage.Stage;
-import sample.model.MyTree;
+import sample.model.Math_help;
+import sample.model.MyPoint;
 
 import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.DoubleStream;
-import java.util.stream.Stream;
 
-public class Main /*extends Application*/ {
+public class Main  {
 
-    private Stage primaryStage;
+    private static List<String> names;
+    private static final String FILE_NAME = "C:\\Users\\Sergej\\IdeaProjects\\Spring\\Id3\\src\\sample\\1.txt";
 
 
     public static void main(String[] args) throws FileNotFoundException {
-        //launch(args);
-
-        BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream("C:\\Users\\Sergej\\IdeaProjects\\Spring\\Id3\\src\\sample\\1.txt")));
+        BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(FILE_NAME)));
         List<String> list =  reader.lines().collect(Collectors.toList());
-        ArrayList<List<String>> matrix = new ArrayList<List<String>>();
-        list.forEach(str -> matrix.add(Arrays.asList(str.split(" "))));
+        ArrayList<List<String>> matrix = new ArrayList<>();
+        ArrayList<List<String>> finalMatrix = matrix;
+        list.forEach(str -> finalMatrix.add(Arrays.asList(str.split(" "))));
 
-//        matrix.forEach(System.out::println);
+        names = finalMatrix.get(0);
+        matrix = Math_help.rotateMatrix(finalMatrix);
 
-        ArrayList<List<String>> matrix2 = new ArrayList<List<String>>();
+        MyPoint root = new MyPoint("Root");
+        root.setRoot(true);
 
-        for (int j = 0; j < matrix.get(0).size(); j++) {
-            List<String> list1 = new ArrayList<>();
-            for (int i = 0; i != matrix.size(); i++) {
-                list1.add(matrix.get(i).get(j));
-            }
-            matrix2.add(list1);
-        }
-
-//        matrix2.forEach(System.out::println);
-
-        MyTree root = new MyTree();
-        initEntropyAndGain(matrix2);
-
-    }
-
-   // @Override
-    public void start(Stage primaryStage) throws Exception{
-        
-        /*this.primaryStage = primaryStage;
-        primaryStage.setTitle("ID3");
-        
-        initRootLayout();*/
-
-        //fromMatToTree(matrix2, root, entropy);
+        initEntropyAndGain(matrix, root);
+        String end = "End";
+        System.out.println(end);
     }
 
 
+    private static void initEntropyAndGain(ArrayList<List<String>> matrix, MyPoint root) {
 
-    private static void initEntropyAndGain(ArrayList<List<String>> matrix) {
+        //посчитали энтропию
+        Double entropy = Math_help.EntropyLevel(matrix.get(0));
 
-        Double entropy = EntropyLevel(matrix.get(0));
-        System.out.println("Entropy for 1= " + entropy);
 
-        if (entropy!=0&&entropy!=1)
+        if (entropy!=0)
         {
-            /*OptionalDouble GainLevel = matrix.stream().filter(str-> matrix.indexOf(str)>0).
-                    mapToDouble(str->GainLevel(matrix, matrix.indexOf(str), entropy)).peek();
-            */
+            //выбираем максимальный Gain
+            Map.Entry maxGainEntry = Math_help.indexOfStringWithMaxGain(matrix, entropy);
+            Integer maxGainIndex = (Integer) maxGainEntry.getKey();
 
-            TreeMap<Integer, Double> gainList = new TreeMap<>();
-            for(int i=1; i!=matrix.size(); i++)
+            if ((Double) maxGainEntry.getValue()==0.0 && matrix.size()==2)
             {
-                double Gain = GainLevel(matrix, i, entropy);
-                System.out.print("Gain for " + i + " = "+ Gain);
-                gainList.put(i, Gain);
+                //вычислить значение по вероятности
+                List<String> list = matrix.get(0);
+                List<Double> prob = list.stream().map(str->
+                        (double)list.stream().filter(a -> a.equals(str)).count() / (double)list.size()
+                ).collect(Collectors.toList());
+
+
+                Double maxprob = prob.stream().max(Double::compareTo).get();
+                Integer index = prob.indexOf(maxprob);
+
+                root.leaves.add(new MyPoint(matrix.get(0).get(index)));
             }
-            gainList.entrySet().forEach(str->System.out.println(str.getKey() + " " + str.getValue()));
-            //gainList.entrySet().stream().max();
+            else {
+                //пишем его в Root
+                root.name += names.get(maxGainIndex);
+                names.remove(maxGainIndex);
 
-            //входим в этот ряд, сами продолжаем
-            //учесть если нет продолжения или если оно одно
+                //создаем листья
+                List<String> leaves_names = matrix.get(maxGainIndex).stream().distinct().collect(Collectors.toList());
+                List<ArrayList<List<String>>> lists = SeparateTable(matrix, maxGainIndex);
+
+                //разделим на несколько таблиц и запустим каждую из них
+                /*for (int i = 0; i < leaves_names.size(); i++) {
+                    MyPoint myPoint = new MyPoint(leaves_names.get(i));
+                    root.leaves.add(myPoint);
+                    initEntropyAndGain(lists.get(i), myPoint);
+                }*/
+
+                leaves_names.forEach(leave->{
+                    MyPoint myPoint = new MyPoint(leave);
+                    root.leaves.add(myPoint);
+                    initEntropyAndGain(lists.get(leaves_names.indexOf(leave)), myPoint);
+                });
+            }
         }
-    }
-
-    private MyTree fromMatToTree(ArrayList<List<String>> matrix, MyTree root, Double entropy) {
-
-
-
-        return null;
-    }
-
-    private static Double GainLevel(ArrayList<List<String>> matrix, int i, Double rootEntropy) {
-
-        List<String> Distinctcollect  = matrix.get(i).stream().distinct().collect(Collectors.toList());
-
-        System.out.print("Значения по одному разу");
-        Distinctcollect.forEach(System.out::println);
-
-
-        //возвращает списки значений
-       /* List<List<String>> listList = Distinctcollect.stream().map(d -> {
-           return matrix.get(i).stream().filter(d::equals).map(str ->
-           {
-                return matrix.get(0).get(matrix.get(i).indexOf(str));
-           }).collect(Collectors.toList());
-        }).collect(Collectors.toList());
-
-        List<List<Integer>> listListInt = Distinctcollect.stream().map(d -> {
-            return matrix.get(i).stream().filter(d::equals).map(str ->
-            {
-                return matrix.get(i).indexOf(str);
-            }).collect(Collectors.toList());
-        }).collect(Collectors.toList());
-*/
-        List<List<String>> listList1 = new ArrayList<>();
-        List<String> str;
-        for(int g = 0; g!=Distinctcollect.size(); g++){
-            str = new ArrayList<>();
-            listList1.add(str);
-        }
-
-        for (int h=0; h!=matrix.get(i).size(); h++)
+        else
         {
-            for (int g=0; g!=Distinctcollect.size(); g++)
+            root.leaves.add(new MyPoint(matrix.get(0).get(0)));
+        }
+    }
+
+    private static List<ArrayList<List<String>>> SeparateTable(ArrayList<List<String>> matrix, Integer maxgain) {
+
+        List<String> leaves_names = matrix.get(maxgain).stream().distinct().collect(Collectors.toList());
+        List<ArrayList<List<String>>> lists = new ArrayList<>();
+
+        //получаем список индексов строк
+        List<List<Integer>> DistinctListInteger = new ArrayList<>();
+        for(int i = 0; i!= leaves_names.size(); i++)
+        {
+            List<Integer> list = new ArrayList<>();
+            for(int j=0; j!=matrix.get(0).size(); j++ )
             {
-                if (matrix.get(i).get(h).equals(Distinctcollect.get(g)))
+                if (Objects.equals(matrix.get(maxgain).get(j), leaves_names.get(i)))
                 {
-                    listList1.get(g).add(matrix.get(0).get(h));
+                    list.add(j);
                 }
             }
+            DistinctListInteger.add(list);
         }
 
+        System.out.println();
+        System.out.println("Смотрим это");
+        DistinctListInteger.forEach(System.out::println);
 
-        System.out.println("Список список " + i);
-        listList1.forEach(System.out::println);
+        //удаляем строку по которой разделяем
+        matrix.remove(maxgain);
 
-        //Считаем уровень для каждого
-        List<Double> doubles = listList1.stream().map(Main::EntropyLevel).collect(Collectors.toList());
 
-        System.out.println("Энтропия одного и второго");
-        doubles.forEach(System.out::println);
-
-        //вычисляем Gain
-        double sum = 0;
-        for (int j = 0; j < listList1.size(); j++) {
-            sum += ((double)listList1.get(j).size()/(double) matrix.get(i).size() * doubles.get(j));
-        }
-
-        return rootEntropy - sum;
-    }
-
-    private static Double EntropyLevel(List<String> list) {
-        List<String> Distinctcollect = list.stream().distinct().collect(Collectors.toList());
-
-        //        Distinctcollect.forEach(System.out::println);
-
-        //считаем вероятности
-/*
-        List<Double> probabilityList = new ArrayList<>();
-        for (String string: Distinctcollect)
-        {
-            probabilityList.add((double)list.stream().filter(str-> str.equals(string)).count() / (double) list.size());
-        }
-*/
-
-        DoubleStream doubleStream = Distinctcollect.stream().mapToDouble(str-> {
-            return (double)list.stream().filter(p-> p.equals(str)).count() / (double)list.size();
+        //для каждого значения
+        for (List<Integer> aDistinctListInteger : DistinctListInteger) {
+            ArrayList<List<String>> a = new ArrayList<>();
+            for (List<String> aMatrix : matrix) {
+                List<String> b = new LinkedList<>();
+                for (Integer anADistinctListInteger : aDistinctListInteger) {
+                    b.add(aMatrix.get(anADistinctListInteger));
                 }
-        );
-
-        List<Double> doubleList = new ArrayList<>();
-        doubleStream.forEach(doubleList::add);
-
-//        doubleList.forEach(System.out::println);
-
-        return Math.abs(doubleList.stream().mapToDouble(str-> {
-            return str*Math.log(str)/Math.log(2);
-        }).sum());
-
-        //Большой вопрос, почему нельзя сделть так
-//        Double DumD = doubleStream.map(str-> str*Math.log1p(str)).sum();
-    }
-
-    private void showPersonalOverView() {
-
-    }
-
-    private void initRootLayout() {
-        try {
-            Parent root = FXMLLoader.load(getClass().getResource("sample2.fxml"));
-            primaryStage.setScene(new Scene(root, 300, 275));
-            primaryStage.show();
-
-/*
-            Scene scene = new Scene(root);
-            primaryStage.setScene(scene);
-            primaryStage.show();
-*/
-        } catch (IOException e) {
-            e.printStackTrace();
+                a.add(b);
+            }
+            lists.add(a);
         }
 
+        return lists;
     }
-
-
-
 }

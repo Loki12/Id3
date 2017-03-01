@@ -3,15 +3,14 @@ package sample.model;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Created by Sergej on 27.02.2017.
- */
-public class MyTree {
+public class MyPoint {
 
     private boolean isRoot;
-    public Set<MyTree> leaves;
+    public String name;
+    public Set<MyPoint> leaves;
 
-    public MyTree() {
+    public MyPoint(String name) {
+        this.name = name;
         this.isRoot = false;
         this.leaves = new HashSet<>();
     }
@@ -29,11 +28,11 @@ public class MyTree {
         isRoot = root;
     }
 
-    public Set<MyTree> getLeaves() {
+    public Set<MyPoint> getLeaves() {
         return leaves;
     }
 
-    public void setLeaves(Set<MyTree> leaves) {
+    public void setLeaves(Set<MyPoint> leaves) {
         this.leaves = leaves;
     }
 }
