@@ -4,16 +4,21 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
+import sample.model.Math_help;
 import sample.model.MyPoint;
 
 import java.io.*;
+import java.sql.Array;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
+import java.util.stream.Stream;
 
 public class Main /*extends Application*/ {
 
     private Stage primaryStage;
+    static MyPoint root;
+    static List<String> names;
 
 
     public static void main(String[] args) throws FileNotFoundException {
@@ -22,31 +27,22 @@ public class Main /*extends Application*/ {
         BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream("C:\\Users\\Sergej\\IdeaProjects\\Spring\\Id3\\src\\sample\\1.txt")));
         List<String> list =  reader.lines().collect(Collectors.toList());
         ArrayList<List<String>> matrix = new ArrayList<List<String>>();
-        list.forEach(str -> matrix.add(Arrays.asList(str.split(" "))));
+        ArrayList<List<String>> finalMatrix = matrix;
+        list.forEach(str -> finalMatrix.add(Arrays.asList(str.split(" "))));
 
-//        matrix.forEach(System.out::println);
+        names = finalMatrix.get(0);
+        matrix = Math_help.rotateMatrix(finalMatrix);
 
-        ArrayList<List<String>> matrix2 = new ArrayList<List<String>>();
-
-        List<String> names = matrix.get(0);
-        for (int j = 1; j < matrix.get(0).size(); j++) {
-            List<String> list1 = new ArrayList<>();
-            for (int i = 0; i != matrix.size(); i++) {
-                list1.add(matrix.get(i).get(j));
-            }
-            matrix2.add(list1);
-        }
-
-//        matrix2.forEach(System.out::println);
-
-        MyPoint root = new MyPoint("Root");
+        root = new MyPoint("Root");
         root.setRoot(true);
-        initEntropyAndGain(matrix2, names, root);
 
-        double f = 32;
+        initEntropyAndGain(matrix, root);
+        double f = 32.0;
     }
 
-   // @Override
+
+
+    // @Override
     public void start(Stage primaryStage) throws Exception{
         
         /*this.primaryStage = primaryStage;
@@ -59,64 +55,103 @@ public class Main /*extends Application*/ {
 
 
 
-    private static void initEntropyAndGain(ArrayList<List<String>> matrix, List<String> names, MyPoint root) {
+    private static void initEntropyAndGain(ArrayList<List<String>> matrix, MyPoint root) {
 
-        Double entropy = EntropyLevel(matrix.get(0));
+        //посчитали энтропию
+        Double entropy = Math_help.EntropyLevel(matrix.get(0));
 
-        if (entropy!=0&&entropy!=1)
+
+        if (entropy!=0)
         {
-            TreeMap<Integer, Double> gainList = new TreeMap<>();
-            for(int i=1; i!=matrix.size(); i++)
+            //выбираем максимальный Gain
+            Map.Entry maxgEntry = Math_help.indexOfStringWithMaxGain(matrix, entropy);
+            Integer maxGainIndex = (Integer) maxgEntry.getKey();
+            Double maxGain = (Double) maxgEntry.getValue();
+
+            if (maxGain==0.0 && matrix.size()==2)
             {
-                double Gain = GainLevel(matrix, i, entropy);
-                System.out.print("Gain for " + i + " = "+ Gain);
-                gainList.put(i, Gain);
+                //вычислить значение по вероятности
+                List<String> list = matrix.get(0);
+                List<Double> prob = list.stream().map(str->
+                        { String string = str;
+                            return (double)((double)list.stream().filter(a -> a.equals(string)).count() / (double)list.size());
+                        }
+                ).collect(Collectors.toList());
+
+
+                Double maxprob = prob.stream().max(Double::compareTo).get();
+                Integer index = list.indexOf(maxprob);
+
+                root.leaves.add(new MyPoint(matrix.get(0).get(index)));
             }
+            else {
+                //пишем его в Root
+                root.name = root.name += names.get(maxGainIndex);
+                names.remove(maxGainIndex);
 
-            Integer maxgain = gainList.entrySet().stream().max(Comparator.comparing(Map.Entry::getValue)).get().getKey();
+                //создаем листья
+                List<String> leaves_names = matrix.get(maxGainIndex).stream().distinct().collect(Collectors.toList());
+                List<ArrayList<List<String>>> lists = SeparateTable(matrix, maxGainIndex);
 
-            if (root.isRoot())
-            {
-                root.name = names.get(maxgain);
+                //добавляем листья
+
+            /*System.out.println();
+            System.out.println("Мы сейчас проверяем это");
+            lists.forEach(a-> a.forEach(System.out::println));*/
+
+                //разделим на несколько таблиц и запустим каждую из них
+                for (int i = 0; i < leaves_names.size(); i++) {
+                    MyPoint myPoint = new MyPoint(leaves_names.get(i));
+                    root.leaves.add(myPoint);
+                    initEntropyAndGain(lists.get(i), myPoint);
+                }
             }
-
-            List<String> leaves_names = new LinkedList<>();
-            List<List<List<String>>> lists = SeparateTable(matrix, maxgain, leaves_names);
-            //разделим на несколько таблиц и запустим каждую из них
-
-            for (int i = 0; i < leaves_names.size(); i++) {
-                MyPoint myPoint = new MyPoint(leaves_names.get(i));
-                initEntropyAndGain(matrix, names, myPoint);
-                root.leaves.add(myPoint);
-            }
-
+        }
+        else
+        {
+            root.leaves.add(new MyPoint(matrix.get(0).get(0)));
         }
     }
 
-    private static List<List<List<String>>> SeparateTable(ArrayList<List<String>> matrix, Integer maxgain, List<String> leaves_names) {
+    private static List<ArrayList<List<String>>> SeparateTable(ArrayList<List<String>> matrix, Integer maxgain) {
 
-        List<String> DistinctList = matrix.get(maxgain).stream().distinct().collect(Collectors.toList());
-        leaves_names = DistinctList;
-        List<List<List<String>>> lists = new ArrayList<>();
+        List<String> leaves_names = matrix.get(maxgain).stream().distinct().collect(Collectors.toList());
+        List<ArrayList<List<String>>> lists = new ArrayList<>();
 
-        for(int i=0; i!=DistinctList.size(); i++)
+        //получаем список индексов строк
+        List<List<Integer>> DistinctListInteger = new ArrayList<>();
+        for(int i = 0; i!= leaves_names.size(); i++)
         {
-            List<List<String>> listList = new ArrayList<>();
-            lists.add(listList);
-        }
-
-        for (int i = 0; i < matrix.get(maxgain).size(); i++) {
-            for (int j=0; j !=DistinctList.size(); j++)
+            List<Integer> list = new ArrayList<>();
+            for(int j=0; j!=matrix.get(0).size(); j++ )
             {
-                if (matrix.get(maxgain).get(i).equals(DistinctList.get(j)))
+                if (Objects.equals(matrix.get(maxgain).get(j), leaves_names.get(i)))
                 {
-                    for(int h=0; h!=matrix.size(); h++)
-                    {
-                        lists.get(j).get(h).add(matrix.get(h).get(i));
-                    }
+                    list.add(j);
                 }
             }
+            DistinctListInteger.add(list);
+        }
 
+        System.out.println();
+        System.out.println("Смотрим это");
+        DistinctListInteger.forEach(System.out::println);
+
+        //удаляем строку по которой разделяем
+        matrix.remove(maxgain);
+
+
+        //для каждого значения
+        for (int h = 0; h < DistinctListInteger.size(); h++) {
+            ArrayList<List<String>> a = new ArrayList<>();
+            for (int i = 0; i < matrix.size(); i++) {
+                List<String> b = new LinkedList<>();
+                for (int j = 0; j < DistinctListInteger.get(h).size(); j++) {
+                    b.add(matrix.get(i).get(DistinctListInteger.get(h).get(j)));
+                }
+                a.add(b);
+            }
+            lists.add(a);
         }
 
         return lists;
@@ -129,59 +164,9 @@ public class Main /*extends Application*/ {
         return null;
     }
 
-    private static Double GainLevel(ArrayList<List<String>> matrix, int i, Double rootEntropy) {
-
-        List<String> Distinctcollect  = matrix.get(i).stream().distinct().collect(Collectors.toList());
-
-        System.out.print("Значения по одному разу");
-        Distinctcollect.forEach(System.out::println);
-
-        List<List<String>> listList1 = new ArrayList<>();
-        List<String> str;
-        for(int g = 0; g!=Distinctcollect.size(); g++){
-            str = new ArrayList<>();
-            listList1.add(str);
-        }
-
-        for (int h=0; h!=matrix.get(i).size(); h++)
-        {
-            for (int g=0; g!=Distinctcollect.size(); g++)
-            {
-                if (matrix.get(i).get(h).equals(Distinctcollect.get(g)))
-                {
-                    listList1.get(g).add(matrix.get(0).get(h));
-                }
-            }
-        }
-
-        List<Double> doubles = listList1.stream().map(Main::EntropyLevel).collect(Collectors.toList());
 
 
-        double sum = 0;
-        for (int j = 0; j < listList1.size(); j++) {
-            sum += ((double)listList1.get(j).size()/(double) matrix.get(i).size() * doubles.get(j));
-        }
 
-        return rootEntropy - sum;
-    }
-
-    private static Double EntropyLevel(List<String> list) {
-        List<String> Distinctcollect = list.stream().distinct().collect(Collectors.toList());
-
-        DoubleStream doubleStream = Distinctcollect.stream().mapToDouble(str->
-                (double)list.stream().filter(p-> p.equals(str)).count() / (double)list.size()
-        );
-
-        List<Double> doubleList = new ArrayList<>();
-        doubleStream.forEach(doubleList::add);
-
-        return Math.abs(doubleList.stream().mapToDouble(str-> {
-            return str*Math.log(str)/Math.log(2);
-        }).sum());
-
-        //Большой вопрос, почему нельзя сделть так
-//        Double DumD = doubleStream.map(str-> str*Math.log1p(str)).sum();
-    }
 
     private void showPersonalOverView() {
 
